@@ -34,7 +34,6 @@ def encrypt_and_save():
     password = password_entry.get()
     secret_text = text_box.get("1.0", "end-1c")
     if not title or not password or not secret_text:
-        # --- DEĞİŞTİRİLDİ ---
         messagebox.showwarning("Missing Information", "Please fill in the title, key, and note fields.")
         return
 
@@ -47,7 +46,6 @@ def encrypt_and_save():
         with open(filename, 'wb') as file:
             file.write(encrypted_data)
 
-        # --- DEĞİŞTİRİLDİ ---
         messagebox.showinfo("Success", f"Your note has been encrypted and saved as '{filename}'.")
 
         title_entry.delete(0, tk.END)
@@ -55,7 +53,6 @@ def encrypt_and_save():
         text_box.delete("1.0", tk.END)
 
     except Exception as e:
-        # --- DEĞİŞTİRİLDİ ---
         messagebox.showerror("Error", f"An error occurred during encryption: {e}")
 
 
@@ -64,7 +61,6 @@ def decrypt_and_load():
     password = password_entry.get()
 
     if not title or not password:
-        # --- DEĞİŞTİRİLDİ ---
         messagebox.showwarning("Missing Information", "Please enter the title of the note and your key to decrypt it.")
         return
 
@@ -85,11 +81,9 @@ def decrypt_and_load():
 
         text_box.delete("1.0", tk.END)
         text_box.insert("1.0", decrypted_data)
-        # --- DEĞİŞTİRİLDİ ---
         messagebox.showinfo("Success", "Your note has been successfully decrypted and loaded.")
 
     except Exception as e:
-        # --- DEĞİŞTİRİLDİ ---
         messagebox.showerror("Error", "Decryption failed! Please check your key or the file may be corrupt.")
 
 
