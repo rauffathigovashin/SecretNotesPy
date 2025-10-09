@@ -10,7 +10,7 @@ from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.backends import default_backend
 import base64
 
-path = r"D:\Downloads\pngtree-top-secret-envelope-note-dossier-label-vector-picture-image_9448898.png"
+path = r"pngegg1.png"
 
 # --- ŞİFRELEME FONKSİYONLARI ---
 
@@ -91,38 +91,39 @@ def decrypt_and_load():
 window = tk.Tk()
 window.title("Secret Notes")
 window.geometry("400x700")
+window.config(bg="#ffe398")
 
 # --- Resim Bölümü ---
 try:
     original_image = Image.open(path)
     resized_image = original_image.resize((110, int(110 * original_image.height / original_image.width)))
     img = ImageTk.PhotoImage(resized_image)
-    image_label = tk.Label(window, image=img)
+    image_label = tk.Label(window, image=img,bg="#ffe398")
     image_label.pack(pady=10)
 except FileNotFoundError:
     image_label = tk.Label(window, text="Image file not found!", fg="red")
     image_label.pack(pady=10)
 
 # --- Başlık Bölümü ---
-label_title = tk.Label(window, text="Enter your title", font=("Arial", 12))
+label_title = tk.Label(window, text="Enter your title", font=("Arial", 12),bg="#ffe398")
 label_title.pack()
 title_entry = tk.Entry(window, width=25)
 title_entry.pack(pady=5)
 
 # --- Şifre Bölümü ---
-label_password = tk.Label(window, text="Enter your key", font=("Arial", 12))
+label_password = tk.Label(window, text="Enter your key", font=("Arial", 12),bg="#ffe398")
 label_password.pack()
 password_entry = tk.Entry(window, width=25, show="*")  # show="*" şifreyi gizler
 password_entry.pack(pady=5)
 
 # --- Metin Kutusu Bölümü ---
-label_textbox = tk.Label(window, text="Enter your note", font=("Arial", 12))
+label_textbox = tk.Label(window, text="Enter your note", font=("Arial", 12),bg="#ffe398")
 label_textbox.pack(pady=(10, 0))
 text_box = tk.Text(window, height=15, width=40)
 text_box.pack(pady=10, padx=20)
 
 # --- Buton Bölümü ---
-button_frame = tk.Frame(window)
+button_frame = tk.Frame(window,bg="#ffe398")
 button_frame.pack(pady=10)
 
 encrypt_button = tk.Button(button_frame, text="Save & Encrypt", command=encrypt_and_save, bg="#4CAF50", fg="white",
