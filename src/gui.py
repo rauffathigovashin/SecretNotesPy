@@ -5,7 +5,11 @@ from path import ICON_PNG, DATA_DIR
 import encrypt
 import os
 
-SALT = b'gizli_notlar_icin_salt_degeri'
+SALT = b""
+
+"""
+Encryption and Decryption
+"""
 
 def encrypt_and_save():
     title = title_entry.get()
@@ -62,6 +66,10 @@ def decrypt_and_load():
     except Exception as e:
         messagebox.showerror("Error", "Decryption failed! Please check your key or the file may be corrupt.")
 
+"""
+Graphical User Interface (GUI)
+"""
+
 window = tk.Tk()
 window.title("Secret Notes")
 window.geometry("400x500")
@@ -75,25 +83,21 @@ try:
 except:
     pass
 
-# --- Başlık Bölümü ---
 label_title = tk.Label(window, text="Enter your title", font=("Arial", 12),bg="#ffe398")
 label_title.pack()
 title_entry = tk.Entry(window, width=25)
 title_entry.pack(pady=5)
 
-# --- Şifre Bölümü ---
 label_password = tk.Label(window, text="Enter your key", font=("Arial", 12),bg="#ffe398")
 label_password.pack()
 password_entry = tk.Entry(window, width=25, show="*")
 password_entry.pack(pady=5)
 
-# --- Metin Kutusu Bölümü ---
 label_textbox = tk.Label(window, text="Enter your note", font=("Arial", 12),bg="#ffe398")
 label_textbox.pack(pady=(10, 0))
 text_box = tk.Text(window, height=2, width=40)
 text_box.pack(pady=10, padx=20)
 
-# --- Buton Bölümü ---
 button_frame = tk.Frame(window,bg="#ffe398")
 button_frame.pack(pady=10)
 
