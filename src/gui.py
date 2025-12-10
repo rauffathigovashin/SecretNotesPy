@@ -1,33 +1,11 @@
 import tkinter as tk
 from tkinter import messagebox
-from PIL import ImageTk, Image
+from cryptography.fernet import Fernet
+from path import ICON_PNG, DATA_DIR
+import encrypt
 import os
 
-# --- GÜVENLİ ŞİFRELEME İÇİN GEREKLİ KÜTÜPHANELER ---
-from cryptography.fernet import Fernet
-from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
-from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.backends import default_backend
-import base64
-
-path = r"pngegg1.png"
-
-# --- ŞİFRELEME FONKSİYONLARI ---
-
 SALT = b'gizli_notlar_icin_salt_degeri'
-
-def derive_key(password: str, salt: bytes) -> bytes:
-    kdf = PBKDF2HMAC(
-        algorithm=hashes.SHA256(),
-        length=32,
-        salt=salt,
-        iterations=100000,
-        backend=default_backend()
-    )
-    return base64.urlsafe_b64encode(kdf.derive(password.encode()))
-
-
-# --- ARAYÜZ FONKSİYONLARI ---
 
 def encrypt_and_save():
     title = title_entry.get()
@@ -38,12 +16,12 @@ def encrypt_and_save():
         return
 
     try:
-        key = derive_key(password, SALT)
+        key = encrypt.derive_key(password, SALT)
         f = Fernet(key)
         encrypted_data = f.encrypt(secret_text.encode('utf-8'))
 
         filename = f"{title}.enc"
-        with open(filename, 'wb') as file:
+        with open(f"{DATA_DIR}/{filename}", 'wb') as file:
             file.write(encrypted_data)
 
         messagebox.showinfo("Success", f"Your note has been encrypted and saved as '{filename}'.")
@@ -55,7 +33,6 @@ def encrypt_and_save():
     except Exception as e:
         messagebox.showerror("Error", f"An error occurred during encryption: {e}")
 
-
 def decrypt_and_load():
     title = title_entry.get()
     password = password_entry.get()
@@ -65,16 +42,15 @@ def decrypt_and_load():
         return
 
     filename = f"{title}.enc"
-    if not os.path.exists(filename):
-        # --- DEĞİŞTİRİLDİ ---
+    if not os.path.exists(f"{DATA_DIR}/{filename}"):
         messagebox.showerror("Error", f"File named '{filename}' could not be found.")
         return
 
     try:
-        with open(filename, 'rb') as file:
+        with open(f"{DATA_DIR}/{filename}", 'rb') as file:
             encrypted_data = file.read()
 
-        key = derive_key(password, SALT)
+        key = encrypt.derive_key(password, SALT)
         f = Fernet(key)
 
         decrypted_data = f.decrypt(encrypted_data).decode('utf-8')
@@ -86,23 +62,18 @@ def decrypt_and_load():
     except Exception as e:
         messagebox.showerror("Error", "Decryption failed! Please check your key or the file may be corrupt.")
 
-
-# --- TKINTER ARAYÜZ KURULUMU ---
 window = tk.Tk()
 window.title("Secret Notes")
-window.geometry("400x700")
+window.geometry("400x500")
 window.config(bg="#ffe398")
 
-# --- Resim Bölümü ---
 try:
-    original_image = Image.open(path)
-    resized_image = original_image.resize((110, int(110 * original_image.height / original_image.width)))
-    img = ImageTk.PhotoImage(resized_image)
-    image_label = tk.Label(window, image=img,bg="#ffe398")
+    icon = tk.PhotoImage(file=ICON_PNG)
+    window.iconphoto(True, icon)
+    image_label = tk.Label(window, image=icon, bg=window["bg"])
     image_label.pack(pady=10)
-except FileNotFoundError:
-    image_label = tk.Label(window, text="Image file not found!", fg="red")
-    image_label.pack(pady=10)
+except:
+    pass
 
 # --- Başlık Bölümü ---
 label_title = tk.Label(window, text="Enter your title", font=("Arial", 12),bg="#ffe398")
@@ -113,13 +84,13 @@ title_entry.pack(pady=5)
 # --- Şifre Bölümü ---
 label_password = tk.Label(window, text="Enter your key", font=("Arial", 12),bg="#ffe398")
 label_password.pack()
-password_entry = tk.Entry(window, width=25, show="*")  # show="*" şifreyi gizler
+password_entry = tk.Entry(window, width=25, show="*")
 password_entry.pack(pady=5)
 
 # --- Metin Kutusu Bölümü ---
 label_textbox = tk.Label(window, text="Enter your note", font=("Arial", 12),bg="#ffe398")
 label_textbox.pack(pady=(10, 0))
-text_box = tk.Text(window, height=15, width=40)
+text_box = tk.Text(window, height=2, width=40)
 text_box.pack(pady=10, padx=20)
 
 # --- Buton Bölümü ---
