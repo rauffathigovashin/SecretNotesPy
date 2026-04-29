@@ -114,6 +114,15 @@ def export_keys():
     method = method_var.get()
     pw = password_entry.get().strip() or None
 
+    if method == "AES-256":
+        messagebox.showinfo("Məlumat", "AES üçün xaricə köçürüləcək açar faylı yoxdur.")
+        return
+
+    from tkinter import filedialog
+    export_dir = filedialog.askdirectory(title="Açarları hara saxlamaq istəyirsiniz?")
+    if not export_dir:
+        return
+
     if method == "RSA-2048":
         priv, pub = state["rsa_private"], state["rsa_public"]
         if not priv:
@@ -121,8 +130,9 @@ def export_keys():
             return
         priv_pem = encrypt.rsa_private_key_to_pem(priv, pw)
         pub_pem  = encrypt.rsa_public_key_to_pem(pub)
-        _save_pem("rsa_private.pem", priv_pem)
-        _save_pem("rsa_public.pem",  pub_pem)
+        _save_pem(os.path.join(export_dir, "rsa_private.pem"), priv_pem)
+        _save_pem(os.path.join(export_dir, "rsa_public.pem"),  pub_pem)
+        messagebox.showinfo("Saxlanıldı", f"RSA açarları bu qovluqda saxlanıldı:\n{export_dir}")
 
     elif method == "ECC (P-256)":
         priv, pub = state["ecc_private"], state["ecc_public"]
@@ -131,17 +141,14 @@ def export_keys():
             return
         priv_pem = encrypt.ecc_private_key_to_pem(priv, pw)
         pub_pem  = encrypt.ecc_public_key_to_pem(pub)
-        _save_pem("ecc_private.pem", priv_pem)
-        _save_pem("ecc_public.pem",  pub_pem)
-    else:
-        messagebox.showinfo("Məlumat", "AES üçün xaricə köçürüləcək açar faylı yoxdur.")
+        _save_pem(os.path.join(export_dir, "ecc_private.pem"), priv_pem)
+        _save_pem(os.path.join(export_dir, "ecc_public.pem"),  pub_pem)
+        messagebox.showinfo("Saxlanıldı", f"ECC açarları bu qovluqda saxlanıldı:\n{export_dir}")
 
 
-def _save_pem(filename: str, data: bytes):
-    path = os.path.join(DATA_DIR, filename)
-    with open(path, "wb") as f:
+def _save_pem(filepath: str, data: bytes):
+    with open(filepath, "wb") as f:
         f.write(data)
-    messagebox.showinfo("Saxlanıldı", f"{filename} → {DATA_DIR}")
 
 
 def import_keys():
@@ -151,31 +158,45 @@ def import_keys():
         return
 
     pw = password_entry.get().strip() or None
+    from tkinter import filedialog
 
-    if method == "RSA-2048":
-        priv_path = os.path.join(DATA_DIR, "rsa_private.pem")
-        pub_path  = os.path.join(DATA_DIR, "rsa_public.pem")
-        _load_key_pair(priv_path, pub_path, "rsa", encrypt.rsa_load_private_key,
-                       encrypt.rsa_load_public_key, pw)
+    if messagebox.askyesno("Daxilə köçür", "Açarları qovluqdan (birlikdə) seçmək istəyirsiniz? 'Xeyr' seçsəniz, faylları tək-tək seçəcəksiniz."):
+        import_dir = filedialog.askdirectory(title="Açarların olduğu qovluğu seçin")
+        if not import_dir:
+            return
+        if method == "RSA-2048":
+            priv_path = os.path.join(import_dir, "rsa_private.pem")
+            pub_path  = os.path.join(import_dir, "rsa_public.pem")
+            _load_key_pair(priv_path, pub_path, "rsa", encrypt.rsa_load_private_key, encrypt.rsa_load_public_key, pw)
+        else:
+            priv_path = os.path.join(import_dir, "ecc_private.pem")
+            pub_path  = os.path.join(import_dir, "ecc_public.pem")
+            _load_key_pair(priv_path, pub_path, "ecc", encrypt.ecc_load_private_key, encrypt.ecc_load_public_key, pw)
     else:
-        priv_path = os.path.join(DATA_DIR, "ecc_private.pem")
-        pub_path  = os.path.join(DATA_DIR, "ecc_public.pem")
-        _load_key_pair(priv_path, pub_path, "ecc", encrypt.ecc_load_private_key,
-                       encrypt.ecc_load_public_key, pw)
+        messagebox.showinfo("Məlumat", "Zəhmət olmasa, Özəl (Private) açar faylını seçin. (Ləğv etmək üçün Cancel basın)")
+        priv_path = filedialog.askopenfilename(title="Özəl açarı (Private Key) seçin", filetypes=[("PEM Files", "*.pem"), ("All Files", "*.*")])
+        
+        messagebox.showinfo("Məlumat", "Zəhmət olmasa, Açıq (Public) açar faylını seçin. (Ləğv etmək üçün Cancel basın)")
+        pub_path = filedialog.askopenfilename(title="Açıq açarı (Public Key) seçin", filetypes=[("PEM Files", "*.pem"), ("All Files", "*.*")])
+
+        if method == "RSA-2048":
+            _load_key_pair(priv_path, pub_path, "rsa", encrypt.rsa_load_private_key, encrypt.rsa_load_public_key, pw)
+        else:
+            _load_key_pair(priv_path, pub_path, "ecc", encrypt.ecc_load_private_key, encrypt.ecc_load_public_key, pw)
 
     update_key_status()
 
 
 def _load_key_pair(priv_path, pub_path, prefix, load_priv_fn, load_pub_fn, pw):
     loaded = []
-    if os.path.exists(priv_path):
+    if priv_path and os.path.exists(priv_path):
         try:
             with open(priv_path, "rb") as f:
                 state[f"{prefix}_private"] = load_priv_fn(f.read(), pw)
             loaded.append("Özəl açar")
         except Exception as e:
             messagebox.showerror("Səhv", f"Özəl açar yüklənəmədi:\n{e}")
-    if os.path.exists(pub_path):
+    if pub_path and os.path.exists(pub_path):
         try:
             with open(pub_path, "rb") as f:
                 state[f"{prefix}_public"] = load_pub_fn(f.read())
@@ -185,7 +206,7 @@ def _load_key_pair(priv_path, pub_path, prefix, load_priv_fn, load_pub_fn, pw):
     if loaded:
         messagebox.showinfo("Daxilə köçürüldü", f"Yükləndi: {', '.join(loaded)}")
     else:
-        messagebox.showwarning("Tapılmadı", f"{DATA_DIR} içinde PEM faylı tapılmadı.")
+        messagebox.showwarning("Tapılmadı", "Müvafiq PEM faylı tapılmadı və ya seçilmədi.")
 
 
 def encrypt_and_save():
@@ -223,11 +244,20 @@ def encrypt_and_save():
         tag_len    = len(method_tag).to_bytes(2, "big")
         payload    = tag_len + method_tag + raw
 
-        filepath = os.path.join(DATA_DIR, f"{title}.enc")
+        from tkinter import filedialog
+        filepath = filedialog.asksaveasfilename(
+            title="Şifrələnmiş Notu Saxla",
+            initialfile=f"{title}.enc",
+            defaultextension=".enc",
+            filetypes=[("Encrypted Files", "*.enc"), ("All Files", "*.*")]
+        )
+        if not filepath:
+            return
+
         with open(filepath, "wb") as fh:
             fh.write(payload)
 
-        messagebox.showinfo("Uğurlu", f"Not şifrələndi və saxlanıldı:\n{title}.enc\nMetod: {method}")
+        messagebox.showinfo("Uğurlu", f"Not şifrələndi və saxlanıldı:\n{filepath}\nMetod: {method}")
         title_entry.delete(0, tk.END)
         password_entry.delete(0, tk.END)
         text_box.delete("1.0", tk.END)
@@ -237,52 +267,80 @@ def encrypt_and_save():
 
 
 def decrypt_and_load():
-    title    = title_entry.get().strip()
     password = password_entry.get().strip()
 
-    if not title:
-        messagebox.showwarning("Əksik məlumat", "Şifrənin şifrəsini daxil edin.")
-        return
-
-    filepath = os.path.join(DATA_DIR, f"{title}.enc")
-    if not os.path.exists(filepath):
-        messagebox.showerror("Səhv", f"'{title}.enc' faylı tapılmadı.")
+    from tkinter import filedialog
+    filepath = filedialog.askopenfilename(
+        title="Şifrələnmiş Notu Seç",
+        filetypes=[("Encrypted Files", "*.enc"), ("All Files", "*.*")]
+    )
+    if not filepath:
         return
 
     try:
         with open(filepath, "rb") as fh:
             payload = fh.read()
 
+        if len(payload) < 2:
+            raise ValueError("Fayl formatı düzgün deyil (çox qısadır).")
+
         tag_len  = int.from_bytes(payload[:2], "big")
+        if len(payload) < 2 + tag_len:
+            raise ValueError("Fayl formatı düzgün deyil (metod oxuna bilmir).")
+
         method   = payload[2: 2 + tag_len].decode("utf-8")
         raw      = payload[2 + tag_len:]
 
         if method == "AES-256":
             if not password:
-                messagebox.showwarning("Əksik məlumat", "AES şifrəsi gerekli.")
+                messagebox.showwarning("Əksik məlumat", "Bu fayl AES-256 ilə şifrələnib. Şifrə daxil etməlisiniz.")
                 return
-            plain = encrypt.aes_decrypt(raw, password)
+            try:
+                plain = encrypt.aes_decrypt(raw, password)
+            except Exception as e:
+                raise ValueError("Yanlış AES şifrəsi və ya fayl zədələnib.") from e
 
         elif method == "RSA-2048":
             priv = state["rsa_private"]
             if priv is None:
-                messagebox.showwarning("Açar yoxdur", "RSA özəl açarı yüklü deyil.")
+                messagebox.showwarning("Açar yoxdur", "Bu fayl RSA ilə şifrələnib, ancaq RSA özəl açarı yüklənməyib.\nZəhmət olmasa 'Import' edib açarı yükləyin.")
                 return
-            plain = encrypt.rsa_decrypt(raw, priv)
+            try:
+                plain = encrypt.rsa_decrypt(raw, priv)
+            except Exception as e:
+                raise ValueError("Yanlış RSA özəl açarı və ya fayl zədələnib.") from e
 
-        else: 
+        elif method == "ECC (P-256)": 
             priv = state["ecc_private"]
             if priv is None:
-                messagebox.showwarning("Açar yoxdur", "ECC özəl açarı yüklü deyil.")
+                messagebox.showwarning("Açar yoxdur", "Bu fayl ECC ilə şifrələnib, ancaq ECC özəl açarı yüklənməyib.\nZəhmət olmasa 'Import' edib açarı yükləyin.")
                 return
-            plain = encrypt.ecc_decrypt(raw, priv)
+            try:
+                plain = encrypt.ecc_decrypt(raw, priv)
+            except Exception as e:
+                raise ValueError("Yanlış ECC özəl açarı və ya fayl zədələnib.") from e
+        
+        else:
+            raise ValueError(f"Naməlum şifrələmə metodu: '{method}'")
 
         text_box.delete("1.0", tk.END)
         text_box.insert("1.0", plain)
+        
+        import os
+        filename = os.path.basename(filepath)
+        title_entry.delete(0, tk.END)
+        if filename.endswith(".enc"):
+            title_entry.insert(0, filename[:-4])
+        else:
+            title_entry.insert(0, filename)
+            
+        method_var.set(method)
+        on_method_change()
+            
         messagebox.showinfo("Uğurlu", f"Not şifrəsi açıldı! (Metod: {method})")
 
-    except Exception:
-        messagebox.showerror("Səhv", "Şifrənin şifrəsi açılmadı! Yanlış açar/şifrə və ya bozuk dosya.")
+    except Exception as e:
+        messagebox.showerror("Səhv", f"Şifrəni açmaq mümkün olmadı:\n{e}")
 
 
 

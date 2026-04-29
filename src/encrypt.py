@@ -1,8 +1,3 @@
-"""
-encrypt.py – Şifreleme yardımcı modülü
-Desteklenen metodlar: AES-256 (Fernet), RSA-2048, ECC (ECDH + AES-GCM)
-"""
-
 import os, base64
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from cryptography.hazmat.primitives import hashes, serialization
@@ -24,7 +19,6 @@ SALT = b""
 
 
 def derive_key(password: str, salt: bytes) -> bytes:
-    """Şifreden Fernet uyumlu anahtar türetir (PBKDF2-SHA256)."""
     kdf = PBKDF2HMAC(
         algorithm=hashes.SHA256(),
         length=32,
@@ -36,19 +30,16 @@ def derive_key(password: str, salt: bytes) -> bytes:
 
 
 def aes_encrypt(plaintext: str, password: str) -> bytes:
-    """AES-128-CBC (Fernet) ile şifreler. Döner: bytes."""
     key = derive_key(password, SALT)
     return Fernet(key).encrypt(plaintext.encode("utf-8"))
 
 
 def aes_decrypt(ciphertext: bytes, password: str) -> str:
-    """AES-128-CBC (Fernet) ile çözer. Döner: str."""
     key = derive_key(password, SALT)
     return Fernet(key).decrypt(ciphertext).decode("utf-8")
 
 
 def rsa_generate_keypair():
-    """RSA-2048 anahtar çifti üretir. Döner: (private_key, public_key)."""
     private_key = rsa.generate_private_key(
         public_exponent=65537,
         key_size=2048,
@@ -58,7 +49,6 @@ def rsa_generate_keypair():
 
 
 def rsa_private_key_to_pem(private_key: RSAPrivateKey, password: str | None = None) -> bytes:
-    """Özel anahtarı PEM formatında döner (isteğe bağlı şifrelenmiş)."""
     enc = (
         serialization.BestAvailableEncryption(password.encode())
         if password
@@ -80,39 +70,63 @@ def rsa_public_key_to_pem(public_key: RSAPublicKey) -> bytes:
 
 def rsa_load_private_key(pem: bytes, password: str | None = None) -> RSAPrivateKey:
     pwd = password.encode() if password else None
-    return serialization.load_pem_private_key(pem, password=pwd, backend=default_backend())
+    key = serialization.load_pem_private_key(pem, password=pwd, backend=default_backend())
+    if not isinstance(key, RSAPrivateKey):
+        raise TypeError("Yüklənən açar RSA özəl açarı deyil!")
+    return key
 
 
 def rsa_load_public_key(pem: bytes) -> RSAPublicKey:
-    return serialization.load_pem_public_key(pem, backend=default_backend())
+    key = serialization.load_pem_public_key(pem, backend=default_backend())
+    if not isinstance(key, RSAPublicKey):
+        raise TypeError("Yüklənən açar RSA açıq açarı deyil!")
+    return key
 
 
 def rsa_encrypt(plaintext: str, public_key: RSAPublicKey) -> bytes:
-    """RSA-OAEP-SHA256 ile şifreler."""
-    return public_key.encrypt(
-        plaintext.encode("utf-8"),
+    """
+    Hibrid RSA+AES şifrələmə:
+      - Təsadüfi 32-bayt AES açarı yaradılır.
+      - AES açarı RSA-OAEP-SHA256 ilə şifrələnir.
+      - Mətn AES-256-GCM ilə şifrələnir.
+    Format: enc_key_len(4B) | enc_aes_key | nonce(12B) | aes_ciphertext
+    Bu üsul ilə istənilən uzunluqda mətn şifrələnə bilər.
+    """
+    aes_key = os.urandom(32)
+    nonce   = os.urandom(12)
+    ct      = AESGCM(aes_key).encrypt(nonce, plaintext.encode("utf-8"), None)
+
+    enc_aes_key = public_key.encrypt(
+        aes_key,
         asym_padding.OAEP(
             mgf=asym_padding.MGF1(algorithm=hashes.SHA256()),
             algorithm=hashes.SHA256(),
             label=None,
         ),
     )
+    key_len = len(enc_aes_key).to_bytes(4, "big")
+    return key_len + enc_aes_key + nonce + ct
 
 
 def rsa_decrypt(ciphertext: bytes, private_key: RSAPrivateKey) -> str:
-    """RSA-OAEP-SHA256 ile çözer."""
-    return private_key.decrypt(
-        ciphertext,
+    """rsa_encrypt ilə şifrələnmiş hibrid payload-ı açır."""
+    key_len     = int.from_bytes(ciphertext[:4], "big")
+    enc_aes_key = ciphertext[4: 4 + key_len]
+    nonce       = ciphertext[4 + key_len: 4 + key_len + 12]
+    ct          = ciphertext[4 + key_len + 12:]
+
+    aes_key = private_key.decrypt(
+        enc_aes_key,
         asym_padding.OAEP(
             mgf=asym_padding.MGF1(algorithm=hashes.SHA256()),
             algorithm=hashes.SHA256(),
             label=None,
         ),
-    ).decode("utf-8")
+    )
+    return AESGCM(aes_key).decrypt(nonce, ct, None).decode("utf-8")
 
 
 def ecc_generate_keypair():
-    """P-256 eğrisi üzerinde ECC anahtar çifti üretir."""
     private_key = ec_generate_private_key(SECP256R1(), default_backend())
     return private_key, private_key.public_key()
 
@@ -139,15 +153,20 @@ def ecc_public_key_to_pem(public_key: EllipticCurvePublicKey) -> bytes:
 
 def ecc_load_private_key(pem: bytes, password: str | None = None) -> EllipticCurvePrivateKey:
     pwd = password.encode() if password else None
-    return serialization.load_pem_private_key(pem, password=pwd, backend=default_backend())
+    key = serialization.load_pem_private_key(pem, password=pwd, backend=default_backend())
+    if not isinstance(key, EllipticCurvePrivateKey):
+        raise TypeError("Yüklənən açar ECC özəl açarı deyil!")
+    return key
 
 
 def ecc_load_public_key(pem: bytes) -> EllipticCurvePublicKey:
-    return serialization.load_pem_public_key(pem, backend=default_backend())
+    key = serialization.load_pem_public_key(pem, backend=default_backend())
+    if not isinstance(key, EllipticCurvePublicKey):
+        raise TypeError("Yüklənən açar ECC açıq açarı deyil!")
+    return key
 
 
 def _ecdh_shared_key(private_key, peer_public_key) -> bytes:
-    """ECDH shared secret → HKDF ile 32 baytlık AES anahtarı."""
     from cryptography.hazmat.primitives.kdf.hkdf import HKDF
     shared = private_key.exchange(ECDH(), peer_public_key)
     return HKDF(
