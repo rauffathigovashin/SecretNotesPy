@@ -1,8 +1,3 @@
-"""
-gui.py – Secret Notes – Ana arayüz
-Desteklenen şifreleme metodları: AES-256 (Fernet) | RSA-2048 | ECC (P-256)
-"""
-
 import os, tkinter as tk
 from tkinter import messagebox, simpledialog, ttk, scrolledtext
 from path import ICON_PNG, DATA_DIR
