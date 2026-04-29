@@ -84,14 +84,6 @@ def rsa_load_public_key(pem: bytes) -> RSAPublicKey:
 
 
 def rsa_encrypt(plaintext: str, public_key: RSAPublicKey) -> bytes:
-    """
-    Hibrid RSA+AES şifrələmə:
-      - Təsadüfi 32-bayt AES açarı yaradılır.
-      - AES açarı RSA-OAEP-SHA256 ilə şifrələnir.
-      - Mətn AES-256-GCM ilə şifrələnir.
-    Format: enc_key_len(4B) | enc_aes_key | nonce(12B) | aes_ciphertext
-    Bu üsul ilə istənilən uzunluqda mətn şifrələnə bilər.
-    """
     aes_key = os.urandom(32)
     nonce   = os.urandom(12)
     ct      = AESGCM(aes_key).encrypt(nonce, plaintext.encode("utf-8"), None)
@@ -109,7 +101,6 @@ def rsa_encrypt(plaintext: str, public_key: RSAPublicKey) -> bytes:
 
 
 def rsa_decrypt(ciphertext: bytes, private_key: RSAPrivateKey) -> str:
-    """rsa_encrypt ilə şifrələnmiş hibrid payload-ı açır."""
     key_len     = int.from_bytes(ciphertext[:4], "big")
     enc_aes_key = ciphertext[4: 4 + key_len]
     nonce       = ciphertext[4 + key_len: 4 + key_len + 12]
@@ -179,10 +170,6 @@ def _ecdh_shared_key(private_key, peer_public_key) -> bytes:
 
 
 def ecc_encrypt(plaintext: str, recipient_public_key: EllipticCurvePublicKey) -> bytes:
-    """
-    Ephemeral ECDH + AES-256-GCM ile şifreler.
-    Dönen format: ephemeral_pub_pem_len(4 B) | ephemeral_pub_pem | nonce(12 B) | ciphertext
-    """
     ephemeral_priv = ec_generate_private_key(SECP256R1(), default_backend())
     ephemeral_pub_pem = ecc_public_key_to_pem(ephemeral_priv.public_key())
     aes_key = _ecdh_shared_key(ephemeral_priv, recipient_public_key)
@@ -195,7 +182,6 @@ def ecc_encrypt(plaintext: str, recipient_public_key: EllipticCurvePublicKey) ->
 
 
 def ecc_decrypt(payload: bytes, recipient_private_key: EllipticCurvePrivateKey) -> str:
-    """ecc_encrypt ile şifrelenmiş veriyi çözer."""
     pub_len = int.from_bytes(payload[:4], "big")
     ephemeral_pub_pem = payload[4: 4 + pub_len]
     nonce = payload[4 + pub_len: 4 + pub_len + 12]
